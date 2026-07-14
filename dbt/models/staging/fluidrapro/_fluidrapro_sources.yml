@@ -3,17 +3,17 @@ version: 2
 sources:
   - name: fluidrapro_raw
     description: "Fluidra Pro Platform CDC events ingested via Kafka/Snowpipe into Snowflake"
-    database: "{{ env_var('DBT_RAW_DATABASE', 'RAW_DB_PROD') }}"
-    schema: FLUIDRAPRO_RAW
+    database: ANALYTICS_DB_PROD
+    schema: RAW_FLUIDRA_PRO
     loader: snowpipe
     loaded_at_field: PARSE_JSON(RECORD_CONTENT):time::TIMESTAMP_NTZ
     freshness:
       warn_after: { count: 24, period: hour }
       error_after: { count: 48, period: hour }
     tables:
-      - name: fpro_qa
+      - name: POOLPRO_INBOUND_EVENTS
         description: >
-          Fluidra Pro QA environment CDC events (full scenario coverage).
+          Fluidra Pro production inbound events from Kafka topic.
           Contains all domain events: pro-business-master, pro-contact-master,
           pro-location-master, pro-key-account-type-master, pro-business-lead,
           pro-guest-technician-master, pro-reconcile.

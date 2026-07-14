@@ -20,7 +20,7 @@ WITH source AS (
     SELECT
         PARSE_JSON(RECORD_METADATA) AS metadata_json,
         PARSE_JSON(RECORD_CONTENT) AS payload
-    FROM {{ source('fluidrapro_raw', 'fpro_qa') }}
+    FROM {{ source('fluidrapro_raw', 'POOLPRO_INBOUND_EVENTS') }}
     WHERE RECORD_METADATA != 'RECORD_METADATA'
       AND PARSE_JSON(RECORD_CONTENT):"detail-type"::STRING LIKE '%pro-contact-master%'
       AND PARSE_JSON(RECORD_CONTENT):detail.data.proContactId IS NOT NULL
