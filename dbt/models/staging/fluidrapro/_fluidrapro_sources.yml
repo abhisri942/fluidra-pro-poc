@@ -6,10 +6,6 @@ sources:
     database: ANALYTICS_DB_PROD
     schema: RAW_FLUIDRA_PRO
     loader: snowpipe
-    loaded_at_field: PARSE_JSON(RECORD_CONTENT):time::TIMESTAMP_NTZ
-    freshness:
-      warn_after: { count: 24, period: hour }
-      error_after: { count: 48, period: hour }
     tables:
       - name: POOLPRO_INBOUND_EVENTS
         description: >
