@@ -11,11 +11,9 @@ snapshot-paths: ["snapshots"]
 models:
   fluidra_pro_analytics:
     staging:
-      +materialized: view
-      +schema: STAGING
-    intermediate:
       +materialized: table
-      +schema: INTERMEDIATE
+      +transient: true
+      +schema: STAGING
     dimensions:
       +materialized: table
       +schema: DIMENSIONS
@@ -25,6 +23,3 @@ models:
     marts:
       +materialized: table
       +schema: MARTS
-    reporting:
-      +materialized: view
-      +schema: REPORTING

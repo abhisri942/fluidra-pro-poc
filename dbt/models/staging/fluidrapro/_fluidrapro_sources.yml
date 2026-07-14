@@ -2,21 +2,21 @@ version: 2
 
 sources:
   - name: fluidrapro_raw
-    description: "Fluidra Pro Platform CDC events ingested via Kafka/Snowpipe"
+    description: "Fluidra Pro Platform CDC events ingested via Kafka/Snowpipe into Snowflake"
     database: "{{ env_var('DBT_RAW_DATABASE', 'RAW_DB_PROD') }}"
     schema: FLUIDRAPRO_RAW
+    loader: snowpipe
+    loaded_at_field: PARSE_JSON(RECORD_CONTENT):time::TIMESTAMP_NTZ
+    freshness:
+      warn_after: { count: 24, period: hour }
+      error_after: { count: 48, period: hour }
     tables:
-      - name: raw_dealers_data
-        description: "Raw CDC events from Kafka topic psot_poolpro_inbound"
-        columns:
-          - name: RECORD_METADATA
-            description: "Kafka metadata (topic, partition, offset, key, CreateTime)"
-          - name: RECORD_CONTENT
-            description: "Full event payload JSON from Fluidra Pro Platform"
-          - name: EVENT_TIME
-            description: "Event timestamp"
       - name: fpro_qa
-        description: "Fluidra Pro QA environment CDC events (full scenario coverage)"
+        description: >
+          Fluidra Pro QA environment CDC events (full scenario coverage).
+          Contains all domain events: pro-business-master, pro-contact-master,
+          pro-location-master, pro-key-account-type-master, pro-business-lead,
+          pro-guest-technician-master, pro-reconcile.
         columns:
           - name: RECORD_METADATA
             description: "Kafka metadata JSON (topic, partition, offset, key, CreateTime)"

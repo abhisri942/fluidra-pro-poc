@@ -1,0 +1,123 @@
+version: 2
+
+models:
+  - name: stg_pro_business_master
+    description: >
+      Staging model for Fluidra Pro business (dealer) entities.
+      Extracts scalar fields from pro-business-master.* events.
+      Deduplicated to latest event per pro_business_id.
+    columns:
+      - name: pro_business_sk
+        description: "Surrogate key (hash of pro_business_id)"
+        tests:
+          - unique
+          - not_null
+      - name: pro_business_id
+        description: "Natural key — unique business identifier from source"
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_pro_contact_master
+    description: >
+      Staging model for Fluidra Pro contact (user) entities.
+      Extracts fields from pro-contact-master.* events.
+      Deduplicated to latest event per pro_contact_id.
+      Note: pro_business_id is NULL on most events — resolve via bridge.
+    columns:
+      - name: pro_contact_sk
+        description: "Surrogate key (hash of pro_contact_id)"
+        tests:
+          - unique
+          - not_null
+      - name: pro_contact_id
+        description: "Natural key — unique contact identifier from source"
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_pro_associated_distributors
+    description: >
+      Staging model for distributors associated with a pro business.
+      Flattened from distributors[] array in pro-business-master.* events.
+      Grain: one row per (pro_business_id, distributor_name, distributor_account_number).
+    columns:
+      - name: distributor_sk
+        description: "Surrogate key (hash of composite business key)"
+        tests:
+          - unique
+          - not_null
+      - name: pro_business_id
+        description: "FK to stg_pro_business_master"
+        tests:
+          - not_null
+
+  - name: stg_pro_program_opt_in
+    description: >
+      Staging model for program opt-ins associated with a pro business.
+      Flattened from programOptIns[] array in pro-business-master.* events.
+      Grain: one row per (pro_business_id, program_name).
+    columns:
+      - name: program_opt_in_sk
+        description: "Surrogate key (hash of composite business key)"
+        tests:
+          - unique
+          - not_null
+      - name: pro_business_id
+        description: "FK to stg_pro_business_master"
+        tests:
+          - not_null
+
+  - name: stg_pro_subscription_master
+    description: >
+      Staging model for IoT/service subscriptions associated with a pro business.
+      Flattened from subscriptions[] array in pro-business-master.* events.
+      Grain: one row per (pro_business_id, subscription_id).
+    columns:
+      - name: subscription_sk
+        description: "Surrogate key (hash of composite business key)"
+        tests:
+          - unique
+          - not_null
+      - name: pro_business_id
+        description: "FK to stg_pro_business_master"
+        tests:
+          - not_null
+
+  - name: stg_pro_business_location_master
+    description: >
+      Staging model for business locations.
+      Extracts fields from pro-location-master.* events.
+      Deduplicated to latest event per pro_location_id.
+    columns:
+      - name: location_sk
+        description: "Surrogate key (hash of pro_location_id)"
+        tests:
+          - unique
+          - not_null
+      - name: pro_location_id
+        description: "Natural key — unique location identifier from source"
+        tests:
+          - unique
+          - not_null
+      - name: pro_business_id
+        description: "FK to stg_pro_business_master"
+        tests:
+          - not_null
+
+  - name: stg_key_account_type
+    description: >
+      Staging model for key account type reference data.
+      Extracts fields from pro-key-account-type-master.* events.
+      Deduplicated to latest event per key_account_type_id.
+    columns:
+      - name: key_account_type_sk
+        description: "Surrogate key (hash of key_account_type_id)"
+        tests:
+          - unique
+          - not_null
+      - name: key_account_type_id
+        description: "Natural key — unique key account type identifier"
+        tests:
+          - unique
+          - not_null
