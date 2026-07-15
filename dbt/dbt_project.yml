@@ -18,7 +18,7 @@ models:
       +materialized: table
       +schema: DIMENSIONS
     facts:
-      +materialized: incremental
+      +materialized: table
       +schema: FACTS
     marts:
       +materialized: table
