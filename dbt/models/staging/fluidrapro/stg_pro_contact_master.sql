@@ -96,6 +96,6 @@ deduplicated AS (
 
 SELECT
     {{ dbt_utils.generate_surrogate_key(['pro_contact_id']) }} AS pro_contact_sk,
-    *
+    * EXCLUDE (_row_num)
 FROM deduplicated
 WHERE _row_num = 1

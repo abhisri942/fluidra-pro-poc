@@ -68,6 +68,6 @@ deduplicated AS (
 
 SELECT
     {{ dbt_utils.generate_surrogate_key(['pro_business_id', 'distributor_name', 'distributor_account_number']) }} AS distributor_sk,
-    *
+    * EXCLUDE (_row_num)
 FROM deduplicated
 WHERE _row_num = 1

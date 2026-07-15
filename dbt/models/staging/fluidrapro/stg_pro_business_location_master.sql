@@ -80,6 +80,6 @@ deduplicated AS (
 
 SELECT
     {{ dbt_utils.generate_surrogate_key(['pro_location_id']) }} AS location_sk,
-    *
+    * EXCLUDE (_row_num)
 FROM deduplicated
 WHERE _row_num = 1

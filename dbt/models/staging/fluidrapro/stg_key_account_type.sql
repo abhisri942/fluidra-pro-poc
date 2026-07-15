@@ -73,6 +73,6 @@ deduplicated AS (
 
 SELECT
     {{ dbt_utils.generate_surrogate_key(['key_account_type_id']) }} AS key_account_type_sk,
-    *
+    * EXCLUDE (_row_num)
 FROM deduplicated
 WHERE _row_num = 1
