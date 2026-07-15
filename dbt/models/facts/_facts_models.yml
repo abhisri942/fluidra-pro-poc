@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: fct_pro_business_master_events
+  - name: fct_pro_business_events
     description: >
       Transaction fact — one row per pro-business-master event.
       Captures every create, update, approve, reject, creation-failed event.
