@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: obt_pro_business_profile
+    description: >
+      One Big Table (OBT) — denormalized wide table joining dim_pro_business_master
+      attributes with fct_pro_business_master_snapshot measures.
+      One row per dealer. Designed for BI tools and self-service analytics.
+    columns:
+      - name: pro_business_id
+        description: "PK — unique business identifier"
+        tests:
+          - unique
+          - not_null
+
+  - name: metric_dealer_health
+    description: >
+      Pre-aggregated dealer health distribution.
+      Shows count and percentage of dealers in each health_status category.
+
+  - name: metric_funnel_daily
+    description: >
+      Daily lead funnel stage counts with processing time statistics.
+      One row per (event_date, funnel_stage).
+
+  - name: metric_dealer_adoption
+    description: >
+      Dealer adoption metrics grouped by business_status and login_status.
+      Shows active login rates per status combination.
+
+  - name: metric_contact_activity
+    description: >
+      Contact event activity summary by date.
+      Tracks daily contact creation, login creation, and deletion volume.
+
+  - name: metric_distributor_coverage
+    description: >
+      Distributor coverage metrics by account status.
+      Shows how many businesses and unique distributors per status.
+
+  - name: metric_program_enrollment
+    description: >
+      Program enrollment status distribution.
+      One row per (program_name, program_status) with business counts.
