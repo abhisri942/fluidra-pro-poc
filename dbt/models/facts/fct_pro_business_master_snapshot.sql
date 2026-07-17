@@ -1,89 +1,138 @@
 {{
-  config(
-    materialized='table',
-    schema='FACTS',
-    tags=['facts', 'business', 'snapshot']
-  )
+    config(materialized='view', tags=['facts']
+    )
 }}
 
 /*
-  Fact: fct_pro_business_master_snapshot
-  Type: Periodic snapshot fact (current state measures per business)
-  Grain: One row per pro_business_id (current point-in-time)
-  Measures: All numeric counts + days_since_last_login + health_status
-  FKs: pro_business_id -> dim_pro_business_master
-  Design: This is where ALL dealer measures live (moved out of the dimension per Kimball).
-  Source: Aggregated from staging models via ref()
+  fct_pro_business_master_snapshot
+  ================================
+  Grain: One row per pro_business_id (snapshot of current activity state)
+  Source: stg_pro_business_master_events + stg_pro_contact_master_events
+  KPIs supported:
+    - Total Active Dealer Accounts (logged in within 30/90/365 days)
+    - Total Enrolled Dealers (status = APPROVED with login)
+    - Total Dealer Accounts Not Set Up (never logged in)
+    - Total Inactive Dealers (have login but inactive)
+    - TAU per Dealer Account
+    - Stickiness Ratio Dealers (WAU / MAU)
 */
 
-WITH dist_counts AS (
-    SELECT
+with business_latest as (
+    select
         pro_business_id,
-        COUNT(*)                                                                    AS total_distributor_count,
-        COUNT(CASE WHEN distributor_account_status = 'ACTIVE' THEN 1 END)           AS active_distributor_count,
-        COUNT(CASE WHEN distributor_account_status = 'PENDING ACTIVE' THEN 1 END)   AS pending_distributor_count,
-        COUNT(CASE WHEN distributor_account_status IN ('INACTIVE', 'PENDING INACTIVE') THEN 1 END) AS inactive_distributor_count
-    FROM {{ ref('stg_pro_associated_distributors') }}
-    GROUP BY pro_business_id
+        business_name,
+        business_status,
+        login_status,
+        registration_source,
+        primary_business_type,
+        business_segment,
+        is_primary_key_account,
+        key_account_type_name,
+        rewards_achiever_level,
+        primary_contact_id,
+        record_created_at as business_created_at,
+        event_time as last_business_event_time
+    from {{ ref('stg_pro_business_master_events') }}
+    where pro_business_id is not null
+      and event_detail_type like '%pro-business-master%'
+    qualify row_number() over (
+        partition by pro_business_id
+        order by event_time desc, kafka_offset desc
+    ) = 1
 ),
 
-prog_counts AS (
-    SELECT
+-- First created event per business (for age calculations)
+business_first_created as (
+    select
         pro_business_id,
-        COUNT(*)                                                        AS total_program_count,
-        COUNT(CASE WHEN program_status = 'ACTIVE' THEN 1 END)          AS active_program_count,
-        COUNT(CASE WHEN program_status = 'PENDING' THEN 1 END)         AS pending_program_count,
-        COUNT(CASE WHEN program_status = 'DECLINED' THEN 1 END)        AS declined_program_count
-    FROM {{ ref('stg_pro_program_opt_in') }}
-    GROUP BY pro_business_id
+        min(event_time) as first_created_at
+    from {{ ref('stg_pro_business_master_events') }}
+    where is_created_event = 1
+    group by pro_business_id
 ),
 
-sub_counts AS (
-    SELECT
+-- First approval event per business
+business_first_approved as (
+    select
         pro_business_id,
-        COUNT(*)                                                        AS total_subscription_count,
-        COUNT(CASE WHEN subscription_status = 'ACTIVE' THEN 1 END)     AS active_subscription_count
-    FROM {{ ref('stg_pro_subscription_master') }}
-    GROUP BY pro_business_id
+        min(event_time) as first_approved_at
+    from {{ ref('stg_pro_business_master_events') }}
+    where is_approved_event = 1 or is_lead_approved = 1
+    group by pro_business_id
 ),
 
-contact_counts AS (
-    SELECT
-        b.pro_business_id,
-        COUNT(*)                                                        AS total_contacts,
-        COUNT(CASE WHEN c.login_status = 'ACTIVE' THEN 1 END)          AS active_contacts
-    FROM {{ ref('bridge_pro_contact_business') }} b
-    INNER JOIN {{ ref('stg_pro_contact_master') }} c
-        ON b.pro_contact_id = c.pro_contact_id
-    GROUP BY b.pro_business_id
+-- Contact activity per business
+contact_activity as (
+    select
+        pro_business_id,
+        count(distinct pro_contact_id) as total_contacts,
+        count(distinct case when is_login_created_event = 1 then pro_contact_id end) as contacts_with_login,
+        max(last_login_date) as last_contact_login_date
+    from {{ ref('stg_pro_contact_master_events') }}
+    where pro_business_id is not null
+    group by pro_business_id
 )
 
-SELECT
-    d.pro_business_id,
-    CURRENT_DATE AS snapshot_date,
-    COALESCE(dc.total_distributor_count, 0)     AS total_distributor_count,
-    COALESCE(dc.active_distributor_count, 0)    AS active_distributor_count,
-    COALESCE(dc.pending_distributor_count, 0)   AS pending_distributor_count,
-    COALESCE(dc.inactive_distributor_count, 0)  AS inactive_distributor_count,
-    COALESCE(pc.total_program_count, 0)         AS total_program_count,
-    COALESCE(pc.active_program_count, 0)        AS active_program_count,
-    COALESCE(pc.pending_program_count, 0)       AS pending_program_count,
-    COALESCE(pc.declined_program_count, 0)      AS declined_program_count,
-    COALESCE(sc.total_subscription_count, 0)    AS total_subscription_count,
-    COALESCE(sc.active_subscription_count, 0)   AS active_subscription_count,
-    COALESCE(cc.total_contacts, 0)              AS total_contacts,
-    COALESCE(cc.active_contacts, 0)             AS active_contacts,
-    DATEDIFF('day', d.primary_contact_last_login, CURRENT_TIMESTAMP()) AS days_since_last_login,
-    CASE
-        WHEN d.login_status = 'ACTIVE' AND d.primary_contact_last_login >= DATEADD('day', -30, CURRENT_TIMESTAMP()) THEN 'HEALTHY'
-        WHEN d.login_status = 'ACTIVE' AND (d.primary_contact_last_login < DATEADD('day', -30, CURRENT_TIMESTAMP()) OR d.primary_contact_last_login IS NULL) THEN 'AT_RISK'
-        WHEN d.login_status = 'PENDING' THEN 'NOT_ONBOARDED'
-        WHEN d.business_status = 'GUEST' THEN 'GUEST'
-        WHEN d.business_status = 'REJECTED' THEN 'REJECTED'
-        ELSE 'UNKNOWN'
-    END AS health_status
-FROM {{ ref('stg_pro_business_master') }} d
-LEFT JOIN dist_counts dc    ON d.pro_business_id = dc.pro_business_id
-LEFT JOIN prog_counts pc    ON d.pro_business_id = pc.pro_business_id
-LEFT JOIN sub_counts sc     ON d.pro_business_id = sc.pro_business_id
-LEFT JOIN contact_counts cc ON d.pro_business_id = cc.pro_business_id
+select
+    b.pro_business_id,
+    b.business_name,
+    b.business_status,
+    b.login_status,
+    b.registration_source,
+    b.primary_business_type,
+    b.business_segment,
+    b.is_primary_key_account,
+    b.key_account_type_name,
+    b.rewards_achiever_level,
+    b.business_created_at,
+    b.last_business_event_time,
+
+    -- Lifecycle timestamps
+    fc.first_created_at,
+    fa.first_approved_at,
+
+    -- Time-to-approve (seconds)
+    datediff('second', fc.first_created_at, fa.first_approved_at) as seconds_to_approve,
+
+    -- Contact activity measures
+    coalesce(ca.total_contacts, 0) as total_contacts,
+    coalesce(ca.contacts_with_login, 0) as contacts_with_login,
+    ca.last_contact_login_date,
+
+    -- Activity classification flags
+    case
+        when b.business_status in ('APPROVED', 'ACTIVE') and ca.last_contact_login_date is not null then true
+        else false
+    end as is_enrolled,
+
+    case
+        when ca.contacts_with_login > 0 then true
+        else false
+    end as has_login_setup,
+
+    case
+        when ca.last_contact_login_date >= dateadd('day', -30, current_timestamp()) then true
+        else false
+    end as is_active_30d,
+
+    case
+        when ca.last_contact_login_date >= dateadd('day', -90, current_timestamp()) then true
+        else false
+    end as is_active_90d,
+
+    case
+        when ca.last_contact_login_date >= dateadd('year', -1, current_timestamp()) then true
+        else false
+    end as is_active_1y,
+
+    case
+        when ca.contacts_with_login > 0 and ca.last_contact_login_date < dateadd('day', -30, current_timestamp()) then true
+        else false
+    end as is_inactive
+
+from business_latest b
+left join business_first_created fc on b.pro_business_id = fc.pro_business_id
+left join business_first_approved fa on b.pro_business_id = fa.pro_business_id
+left join contact_activity ca on b.pro_business_id = ca.pro_business_id
+
+

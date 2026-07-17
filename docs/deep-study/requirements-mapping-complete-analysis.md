@@ -238,8 +238,8 @@ This document maps **Fluidra's public business model** (from fluidra.com/fluidra
 │                ANALYTICS_DB_PROD                                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  INTERMEDIATE        │ DIMENSIONS      │ FACTS          │ MARTS  │
-│  int_business_       │ dim_dealer      │ fct_dealer_    │ mart_  │
-│  reconciled          │ dim_contact     │ events         │ dealer_│
+│  int_business_       │ dim_dealer      │ fct_pro_biz_   │ mart_  │
+│  reconciled          │ dim_contact     │ master_events  │ dealer_│
 │  int_contact_        │ dim_location    │ fct_lead_      │ adopt  │
 │  enriched            │ dim_program     │ funnel         │ mart_  │
 │  int_lead_           │ dim_distributor │ fct_revenue    │ user_  │
@@ -255,7 +255,7 @@ This document maps **Fluidra's public business model** (from fluidra.com/fluidra
 
 | Fact Table | Grain | Source | Key Measures |
 |-----------|-------|--------|-------------|
-| `fct_dealer_events` | One row per business event | Platform CDC | Event counts, status changes |
+| `FCT_PRO_BUSINESS_MASTER_EVENTS` | One row per business event | Platform CDC | Event counts, status changes |
 | `fct_lead_funnel` | One row per lead stage transition | Platform + SF | Time in stage, conversion flag |
 | `fct_login_activity` | One row per login session | Login events (future) | Session count, duration |
 | `fct_revenue` | One row per transaction | PSOT Revenue (future) | Revenue amount, product category |

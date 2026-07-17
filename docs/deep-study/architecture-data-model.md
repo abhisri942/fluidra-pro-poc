@@ -69,7 +69,7 @@
 │  │                                                                     │    │
 │  │  INTERMEDIATE          │ DIMENSIONS        │ FACTS                  │    │
 │  │  ─────────────         │ ──────────        │ ─────                  │    │
-│  │  int_business_         │ dim_dealer        │ fct_dealer_events      │    │
+│  │  int_business_         │ dim_dealer        │ FCT_PRO_BUSINESS_MASTER_EVENTS      │    │
 │  │    reconciled          │ dim_contact       │ fct_lead_funnel        │    │
 │  │  int_contact_          │ dim_location      │ fct_login_activity     │    │
 │  │    enriched            │ dim_program       │ fct_revenue            │    │
@@ -123,7 +123,7 @@
                         └────────┬─────────┘
                                  │
 ┌──────────────────┐    ┌────────┴─────────────────────┐    ┌──────────────────┐
-│  dim_distributor │    │      fct_dealer_events       │    │   dim_location   │
+│  dim_distributor │    │      FCT_PRO_BUSINESS_MASTER_EVENTS       │    │   dim_location   │
 │────────────────  │    │──────────────────────────────│    │────────────────  │
 │ distributor_key  │◄───│ event_key (PK)               │───►│ location_key(PK) │
 │ distributor_name │    │ dealer_key (FK)               │    │ pro_location_id  │
@@ -192,7 +192,7 @@ RAW_DEALERS_DATA
     │                                 └──► int_lead_funnel ──► fct_lead_funnel
     ├──► stg_fluidrapro_leads ───────┘            │
     │                                              ▼
-    └──► stg_fluidrapro_reconcile           fct_dealer_events
+    └──► stg_fluidrapro_reconcile           FCT_PRO_BUSINESS_MASTER_EVENTS
                                                    │
 RAW_LEADS ──► stg_salesforce_leads ────────────────┤
 RAW_ACCOUNTS ──► stg_salesforce_accounts ──────────┤

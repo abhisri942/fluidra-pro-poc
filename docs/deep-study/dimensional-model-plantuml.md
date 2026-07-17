@@ -205,7 +205,7 @@ package "DIMENSIONS (Conformed - Current State)" as dims #E8F4FD {
 ' ============================================================
 package "FACTS (Event Grain - One Row Per Event)" as facts #FBE9E7 {
 
-  class FCT_DEALER_EVENTS <<(F,#BF360C) Business Events>> {
+  class FCT_PRO_BUSINESS_MASTER_EVENTS <<(F,#BF360C) Business Events>> {
     .. Primary Key ..
     + event_id : STRING <<PK>>
     .. Dimension Foreign Keys ..
@@ -241,7 +241,7 @@ package "FACTS (Event Grain - One Row Per Event)" as facts #FBE9E7 {
     utm_term : STRING
   }
 
-  class FCT_CONTACT_EVENTS <<(F,#BF360C) User Events>> {
+  class FCT_PRO_CONTACT_MASTER_EVENTS <<(F,#BF360C) User Events>> {
     .. Primary Key ..
     + event_id : STRING <<PK>>
     .. Dimension Foreign Keys ..
@@ -418,23 +418,23 @@ BRIDGE_CONTACT_DEALER "0..*" .right.> "1" DIM_DEALER : "links to"
 ' ============================================================
 ' RELATIONSHIPS: Dimension to Fact
 ' ============================================================
-DIM_DEALER "1" -down-o "0..*" FCT_DEALER_EVENTS
+DIM_DEALER "1" -down-o "0..*" FCT_PRO_BUSINESS_MASTER_EVENTS
 DIM_DEALER "1" -down-o "0..*" FCT_LEAD_FUNNEL
-DIM_CONTACT "1" -down-o "0..*" FCT_CONTACT_EVENTS
+DIM_CONTACT "1" -down-o "0..*" FCT_PRO_CONTACT_MASTER_EVENTS
 DIM_SALES_REP "1" .down.o "0..*" FCT_LEAD_FUNNEL : "attributed"
-DIM_DATE "1" .down.o "0..*" FCT_DEALER_EVENTS : "date"
-DIM_DATE "1" .down.o "0..*" FCT_CONTACT_EVENTS : "date"
+DIM_DATE "1" .down.o "0..*" FCT_PRO_BUSINESS_MASTER_EVENTS : "date"
+DIM_DATE "1" .down.o "0..*" FCT_PRO_CONTACT_MASTER_EVENTS : "date"
 DIM_DATE "1" .down.o "0..*" FCT_LEAD_FUNNEL : "date"
 
 ' ============================================================
 ' RELATIONSHIPS: Fact to Metric (Aggregation)
 ' ============================================================
-FCT_DEALER_EVENTS .down.> METRIC_DEALER_ADOPTION : "aggregates"
-FCT_DEALER_EVENTS .down.> METRIC_REGISTRATION_TRENDS : "aggregates"
+FCT_PRO_BUSINESS_MASTER_EVENTS .down.> METRIC_DEALER_ADOPTION : "aggregates"
+FCT_PRO_BUSINESS_MASTER_EVENTS .down.> METRIC_REGISTRATION_TRENDS : "aggregates"
 FCT_LEAD_FUNNEL .down.> METRIC_DEALER_CONVERSION : "aggregates"
 FCT_LEAD_FUNNEL .down.> METRIC_FUNNEL_DAILY : "aggregates"
-FCT_CONTACT_EVENTS .down.> METRIC_USER_ADOPTION : "aggregates"
-FCT_CONTACT_EVENTS .down.> METRIC_CONTACT_ONBOARDING : "aggregates"
+FCT_PRO_CONTACT_MASTER_EVENTS .down.> METRIC_USER_ADOPTION : "aggregates"
+FCT_PRO_CONTACT_MASTER_EVENTS .down.> METRIC_CONTACT_ONBOARDING : "aggregates"
 DIM_PROGRAM_OPT_IN .down.> METRIC_PROGRAM_ENROLLMENT : "aggregates"
 DIM_DISTRIBUTOR .down.> METRIC_DISTRIBUTOR_COVERAGE : "aggregates"
 DIM_DEALER .down.> METRIC_DEALER_HEALTH : "composite"
@@ -466,8 +466,8 @@ Paste the code above into any of these:
 - **DIM_DATE** is a role-playing dimension (same table joins to all facts on `event_date`)
 
 ### Fact Table Separation Rationale
-- **FCT_DEALER_EVENTS**: Business lifecycle (creation, approval, updates) — grain is one business event
-- **FCT_CONTACT_EVENTS**: User onboarding (contact creation, login setup) — grain is one contact event
+- **FCT_PRO_BUSINESS_MASTER_EVENTS**: Business lifecycle (creation, approval, updates) — grain is one business event
+- **FCT_PRO_CONTACT_MASTER_EVENTS**: User onboarding (contact creation, login setup) — grain is one contact event
 - **FCT_LEAD_FUNNEL**: Conversion pipeline (guest→lead→approved→rejected) — grain is one stage transition
 - **FCT_RECONCILIATION**: Data operations health — grain is one reconciliation run
 
@@ -483,6 +483,6 @@ Paste the code above into any of these:
 | DIM_DEALER → DIM_SUBSCRIPTION | 1:N | One dealer has 0+ IoT subscriptions |
 | DIM_CONTACT → BRIDGE | N:1 | Many contacts resolve to one bridge entry |
 | BRIDGE → DIM_DEALER | N:1 | Bridge links back to dealer |
-| DIM_DEALER → FCT_DEALER_EVENTS | 1:N | One dealer generates many events over time |
-| DIM_CONTACT → FCT_CONTACT_EVENTS | 1:N | One contact generates many events |
+| DIM_DEALER → FCT_PRO_BUSINESS_MASTER_EVENTS | 1:N | One dealer generates many events over time |
+| DIM_CONTACT → FCT_PRO_CONTACT_MASTER_EVENTS | 1:N | One contact generates many events |
 | DIM_DATE → All Facts | 1:N | Role-playing date dimension |

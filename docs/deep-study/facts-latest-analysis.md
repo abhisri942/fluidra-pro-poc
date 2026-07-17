@@ -10,8 +10,8 @@
 
 | View | Rows | Grain | Source Events |
 |------|:----:|-------|---------------|
-| `FCT_DEALER_EVENTS` | ~1,016 | 1 per business event | pro-business-master.* (all 6 types) |
-| `FCT_CONTACT_EVENTS` | ~2,723 | 1 per contact event | pro-contact-master.* (all 4 types) |
+| `FCT_PRO_BUSINESS_MASTER_EVENTS` | ~1,016 | 1 per business event | pro-business-master.* (all 6 types) |
+| `FCT_PRO_CONTACT_MASTER_EVENTS` | ~2,723 | 1 per contact event | pro-contact-master.* (all 4 types) |
 | `FCT_LEAD_FUNNEL` | ~610 | 1 per funnel stage transition | created + approved + rejected + failed |
 | `FCT_RECONCILIATION` | 86 | 1 per reconciliation run | pro-reconcile.completed |
 
@@ -148,8 +148,8 @@ ANALYTICS_DB_DEV
 │   └── BRIDGE_CONTACT_DEALER (249)
 │
 ├── FACTS/ (4 fact views)
-│   ├── FCT_DEALER_EVENTS (~1,016)
-│   ├── FCT_CONTACT_EVENTS (~2,723)
+│   ├── FCT_PRO_BUSINESS_MASTER_EVENTS (~1,016)
+│   ├── FCT_PRO_CONTACT_MASTER_EVENTS (~2,723)
 │   ├── FCT_LEAD_FUNNEL (~610)
 │   └── FCT_RECONCILIATION (86)
 │
@@ -169,10 +169,10 @@ ANALYTICS_DB_DEV
 
 ## Snowflake DDL — Fact Views
 
-### FCT_DEALER_EVENTS
+### FCT_PRO_BUSINESS_MASTER_EVENTS
 
 ```sql
-CREATE OR REPLACE VIEW ANALYTICS_DB_DEV.FACTS.FCT_DEALER_EVENTS AS
+CREATE OR REPLACE VIEW ANALYTICS_DB_DEV.FACTS.FCT_PRO_BUSINESS_MASTER_EVENTS AS
 WITH source AS (
     SELECT PARSE_JSON(RECORD_METADATA) AS metadata_json, PARSE_JSON(RECORD_CONTENT) AS payload
     FROM RAW_DB_PROD.FLUIDRAPRO_RAW.FPRO_QA
@@ -205,10 +205,10 @@ SELECT * FROM parsed
 QUALIFY ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY kafka_offset DESC) = 1;
 ```
 
-### FCT_CONTACT_EVENTS
+### FCT_PRO_CONTACT_MASTER_EVENTS
 
 ```sql
-CREATE OR REPLACE VIEW ANALYTICS_DB_DEV.FACTS.FCT_CONTACT_EVENTS AS
+CREATE OR REPLACE VIEW ANALYTICS_DB_DEV.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS AS
 WITH source AS (
     SELECT PARSE_JSON(RECORD_METADATA) AS metadata_json, PARSE_JSON(RECORD_CONTENT) AS payload
     FROM RAW_DB_PROD.FLUIDRAPRO_RAW.FPRO_QA
@@ -299,7 +299,7 @@ SELECT
     COUNT(DISTINCT CASE WHEN business_status='ACTIVE' AND rewards_program_status='ACTIVE' THEN pro_business_id END) AS kpi_1_2_enrolled_dealers,
     COUNT(DISTINCT CASE WHEN login_status='PENDING' THEN pro_business_id END) AS kpi_1_3_dealers_not_setup,
     COUNT(DISTINCT CASE WHEN login_status='ACTIVE' AND (primary_contact_last_login < DATEADD('day',-30,CURRENT_TIMESTAMP()) OR primary_contact_last_login IS NULL) THEN pro_business_id END) AS kpi_1_4_inactive_dealers,
-    (SELECT COUNT(*) FROM ANALYTICS_DB_DEV.FACTS.FCT_DEALER_EVENTS WHERE is_created_event=1) AS kpi_1_5_new_dealers_created,
+    (SELECT COUNT(*) FROM ANALYTICS_DB_DEV.FACTS.FCT_PRO_BUSINESS_MASTER_EVENTS WHERE is_created_event=1) AS kpi_1_5_new_dealers_created,
     COUNT(DISTINCT pro_business_id) AS total_dealers
 FROM ANALYTICS_DB_DEV.DIMENSIONS.DIM_PRO_BUSINESS_MASTER;
 ```
@@ -323,11 +323,11 @@ FROM ANALYTICS_DB_DEV.FACTS.FCT_LEAD_FUNNEL;
 
 ```sql
 CREATE OR REPLACE VIEW ANALYTICS_DB_DEV.MARTS.METRIC_USER_ADOPTION AS
-WITH created AS (SELECT DISTINCT pro_contact_id FROM ANALYTICS_DB_DEV.FACTS.FCT_CONTACT_EVENTS WHERE is_created_event=1),
-login_created AS (SELECT DISTINCT pro_contact_id FROM ANALYTICS_DB_DEV.FACTS.FCT_CONTACT_EVENTS WHERE is_login_created_event=1)
+WITH created AS (SELECT DISTINCT pro_contact_id FROM ANALYTICS_DB_DEV.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS WHERE is_created_event=1),
+login_created AS (SELECT DISTINCT pro_contact_id FROM ANALYTICS_DB_DEV.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS WHERE is_login_created_event=1)
 SELECT
     (SELECT COUNT(*) FROM ANALYTICS_DB_DEV.DIMENSIONS.DIM_CONTACT WHERE login_status='ACTIVE') AS kpi_3_1_total_active_users,
-    (SELECT COUNT(DISTINCT pro_contact_id) FROM ANALYTICS_DB_DEV.FACTS.FCT_CONTACT_EVENTS WHERE is_created_event=1 AND contact_type='TECHNICIAN') AS kpi_3_2_new_technicians,
+    (SELECT COUNT(DISTINCT pro_contact_id) FROM ANALYTICS_DB_DEV.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS WHERE is_created_event=1 AND contact_type='TECHNICIAN') AS kpi_3_2_new_technicians,
     (SELECT COUNT(*) FROM created WHERE pro_contact_id NOT IN (SELECT pro_contact_id FROM login_created)) AS kpi_3_3_users_never_setup,
     ROUND((SELECT COUNT(*) FROM login_created)::FLOAT / NULLIF((SELECT COUNT(*) FROM created),0)*100,1) AS kpi_3_6_first_login_rate_pct;
 ```
@@ -367,8 +367,8 @@ FROM ANALYTICS_DB_DEV.DIMENSIONS.DIM_DISTRIBUTOR GROUP BY distributor_name ORDER
 
 -- METRIC_CONTACT_ONBOARDING
 CREATE OR REPLACE VIEW ANALYTICS_DB_DEV.MARTS.METRIC_CONTACT_ONBOARDING AS
-WITH created AS (SELECT pro_contact_id, contact_type, MIN(event_time) AS t FROM ANALYTICS_DB_DEV.FACTS.FCT_CONTACT_EVENTS WHERE is_created_event=1 GROUP BY 1,2),
-login AS (SELECT pro_contact_id, MIN(event_time) AS t FROM ANALYTICS_DB_DEV.FACTS.FCT_CONTACT_EVENTS WHERE is_login_created_event=1 GROUP BY 1)
+WITH created AS (SELECT pro_contact_id, contact_type, MIN(event_time) AS t FROM ANALYTICS_DB_DEV.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS WHERE is_created_event=1 GROUP BY 1,2),
+login AS (SELECT pro_contact_id, MIN(event_time) AS t FROM ANALYTICS_DB_DEV.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS WHERE is_login_created_event=1 GROUP BY 1)
 SELECT c.contact_type,
     COUNT(DISTINCT c.pro_contact_id) AS total_created,
     COUNT(DISTINCT l.pro_contact_id) AS completed_login,
@@ -384,8 +384,8 @@ GROUP BY c.contact_type ORDER BY total_created DESC;
 
 | Path | Materialization |
 |------|:-:|
-| `facts/fct_dealer_events.sql` | view |
-| `facts/fct_contact_events.sql` | view |
+| `facts/FCT_PRO_BUSINESS_MASTER_EVENTS.sql` | view |
+| `facts/FCT_PRO_CONTACT_MASTER_EVENTS.sql` | view |
 | `facts/fct_lead_funnel.sql` | view |
 | `facts/fct_reconciliation.sql` | view |
 | `marts/metric_dealer_adoption.sql` | view |

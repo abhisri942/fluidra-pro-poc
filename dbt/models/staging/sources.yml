@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: fluidrapro_raw
+    database: RAW_DB_PROD
+    schema: FLUIDRAPRO_RAW
+    description: "Raw CDC events from Kafka topic - FluidraPro dealer platform events"
+    tables:
+      - name: 
+        description: "Raw Kafka events containing business, contact, and location events"
+        columns:
+          - name: RECORD_CONTENT
+            description: "JSON payload containing the CDC event data from Kafka"
+          - name: RECORD_METADATA
+            description: "JSON Kafka metadata (topic, partition, offset, key, CreateTime)"
+          - name: _LOADED_AT
+            description: "Timestamp when the record was loaded into Snowflake"

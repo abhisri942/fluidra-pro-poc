@@ -3,7 +3,7 @@
 ## Executive Summary
 
 This document provides the architectural justification for splitting event data into
-**3 separate fact tables** (FCT_DEALER_EVENTS, FCT_CONTACT_EVENTS, FCT_LEAD_FUNNEL)
+**3 separate fact tables** (FCT_PRO_BUSINESS_MASTER_EVENTS, FCT_PRO_CONTACT_MASTER_EVENTS, FCT_LEAD_FUNNEL)
 rather than a single merged `FCT_ALL_EVENTS` table. The decision follows Kimball dimensional
 modeling principles and is driven by grain clarity, query simplicity, and NULL elimination.
 
@@ -22,8 +22,8 @@ All 3 fact tables share `event_id` as PK and source from the same raw table
 
 | Fact Table | Grain | Primary Entity | Source Event Types |
 |-----------|-------|----------------|-------------------|
-| FCT_DEALER_EVENTS | One business-level event | `pro_business_id` | `pro-business-master.*`, `pro-business-lead.*` |
-| FCT_CONTACT_EVENTS | One contact-level event | `pro_contact_id` | `pro-contact-master.*` |
+| FCT_PRO_BUSINESS_MASTER_EVENTS | One business-level event | `pro_business_id` | `pro-business-master.*`, `pro-business-lead.*` |
+| FCT_PRO_CONTACT_MASTER_EVENTS | One contact-level event | `pro_contact_id` | `pro-contact-master.*` |
 | FCT_LEAD_FUNNEL | One funnel stage transition | `pro_business_id` + stage | `*.created`, `*.approved`, `*.rejected`, `*.creation-failed` |
 
 A dealer creation event is fundamentally NOT a contact login event. They describe
@@ -33,8 +33,8 @@ different business processes at different entity levels.
 
 | Fact Table | Measures | Business Domain |
 |-----------|----------|-----------------|
-| FCT_DEALER_EVENTS | `distributor_count`, `program_opt_in_count`, `utm_*`, `is_created/approved/rejected` | Network growth & composition |
-| FCT_CONTACT_EVENTS | `is_login_created`, `contact_type`, `is_created_event` | User onboarding & activation |
+| FCT_PRO_BUSINESS_MASTER_EVENTS | `distributor_count`, `program_opt_in_count`, `utm_*`, `is_created/approved/rejected` | Network growth & composition |
+| FCT_PRO_CONTACT_MASTER_EVENTS | `is_login_created`, `contact_type`, `is_created_event` | User onboarding & activation |
 | FCT_LEAD_FUNNEL | `seconds_in_stage`, `funnel_stage`, `failure_reason`, `sales_rep_name` | Conversion pipeline efficiency |
 
 These measures don't make sense together in one row. You would never
@@ -44,8 +44,8 @@ SUM `distributor_count` alongside `seconds_in_stage`.
 
 | Fact Table | Primary Dimensions |
 |-----------|-------------------|
-| FCT_DEALER_EVENTS | DIM_DEALER, DIM_LOCATION, DIM_DATE |
-| FCT_CONTACT_EVENTS | DIM_CONTACT, DIM_DEALER (via bridge), DIM_DATE |
+| FCT_PRO_BUSINESS_MASTER_EVENTS | DIM_DEALER, DIM_LOCATION, DIM_DATE |
+| FCT_PRO_CONTACT_MASTER_EVENTS | DIM_CONTACT, DIM_DEALER (via bridge), DIM_DATE |
 | FCT_LEAD_FUNNEL | DIM_DEALER, DIM_SALES_REP, DIM_DATE |
 
 ---
@@ -69,14 +69,14 @@ that event type is wasted storage and confuses consumers.
 
 ### 3.2 Same Data — 3 Separate Facts (Clean)
 
-**FCT_DEALER_EVENTS:**
+**FCT_PRO_BUSINESS_MASTER_EVENTS:**
 ```
 | event_id | event_time | pro_business_id | event_detail_type              | distributor_count | program_opt_in_count | utm_source | is_created | is_approved | is_rejected |
 |----------|------------|-----------------|--------------------------------|-------------------|---------------------|------------|------------|-------------|-------------|
 | evt-001  | 2026-06-16 | biz-123         | pro-business-master.created.v1 | 2                 | 1                   | google     | 1          | 0           | 0           |
 ```
 
-**FCT_CONTACT_EVENTS:**
+**FCT_PRO_CONTACT_MASTER_EVENTS:**
 ```
 | event_id | event_time | pro_contact_id | pro_business_id | contact_type | is_created_event | is_login_created_event |
 |----------|------------|----------------|-----------------|--------------|------------------|------------------------|
@@ -114,7 +114,7 @@ GROUP BY 1;
 **With 3 Fact Tables (clean):**
 ```sql
 SELECT DATE_TRUNC('week', event_time), SUM(is_created_event)
-FROM FCT_DEALER_EVENTS
+FROM FCT_PRO_BUSINESS_MASTER_EVENTS
 GROUP BY 1;
 ```
 
@@ -143,7 +143,7 @@ SELECT
     contact_type,
     COUNT(DISTINCT CASE WHEN is_login_created_event = 1 THEN pro_contact_id END)::FLOAT /
     NULLIF(COUNT(DISTINCT CASE WHEN is_created_event = 1 THEN pro_contact_id END), 0)
-FROM FCT_CONTACT_EVENTS
+FROM FCT_PRO_CONTACT_MASTER_EVENTS
 GROUP BY contact_type;
 ```
 
@@ -228,8 +228,8 @@ A single `FCT_ALL_EVENTS` is valid in these scenarios:
 ```
 STG_EVENTS_PARSED (unified layer — ALL events, fully parsed)
     │
-    ├── FCT_DEALER_EVENTS (domain: business/dealer lifecycle)
-    ├── FCT_CONTACT_EVENTS (domain: user onboarding)
+    ├── FCT_PRO_BUSINESS_MASTER_EVENTS (domain: business/dealer lifecycle)
+    ├── FCT_PRO_CONTACT_MASTER_EVENTS (domain: user onboarding)
     └── FCT_LEAD_FUNNEL (domain: conversion pipeline)
 ```
 
@@ -259,7 +259,7 @@ contact-level events (grain: one row per user action) in one table violates this
 | Snowplow/Segment | Separate `events`, `page_views`, `sessions` fact tables from same stream |
 | Salesforce analytics | Separate `Opportunity`, `Lead`, `Activity` fact tables |
 | Stripe analytics | Separate `charges`, `refunds`, `subscriptions` fact tables |
-| Our model | Separate `dealer_events`, `contact_events`, `lead_funnel` from same Kafka stream |
+| Our model | Separate `pro_business_master_events`, `pro_contact_master_events`, `lead_funnel` from same Kafka stream |
 
 All follow the same principle: one source stream → multiple domain-specific fact tables.
 
@@ -302,9 +302,9 @@ for anyone needing cross-domain analysis.
 └──────┬──────────────────────┬──────────────────────┬────────────┘
        │                      │                      │
        ▼                      ▼                      ▼
-┌──────────────┐    ┌──────────────────┐    ┌────────────────┐
-│FCT_DEALER_   │    │FCT_CONTACT_      │    │FCT_LEAD_       │
-│EVENTS        │    │EVENTS            │    │FUNNEL          │
+┌──────────────────────────┐    ┌──────────────────────────────┐    ┌────────────────┐
+│FCT_PRO_BUSINESS_MASTER_  │    │FCT_PRO_CONTACT_MASTER_       │    │FCT_LEAD_       │
+│EVENTS                    │    │EVENTS                        │    │FUNNEL          │
 │──────────────│    │──────────────────│    │────────────────│
 │156 rows      │    │75 rows           │    │132 rows        │
 │Grain: biz    │    │Grain: contact    │    │Grain: stage    │

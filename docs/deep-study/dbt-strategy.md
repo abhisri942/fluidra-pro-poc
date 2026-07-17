@@ -34,14 +34,14 @@ flowchart TB
 
     subgraph STEP4["Step 4: Facts (incremental)"]
         direction LR
-        F1["fct_dealer_events"]
-        F2["fct_contact_events"]
+        F1["FCT_PRO_BUSINESS_MASTER_EVENTS"]
+        F2["FCT_PRO_CONTACT_MASTER_EVENTS"]
         F3["fct_lead_funnel"]
         F4["fct_reconciliation"]
     end
 
     subgraph STEP5["Step 5: Snapshot Fact (table - full refresh)"]
-        F5["fct_dealer_snapshot"]
+        F5["fct_pro_business_master_snapshot"]
     end
 
     subgraph STEP6["Step 6: Metrics (view)"]
@@ -147,8 +147,8 @@ WHERE payload:time::TIMESTAMP_NTZ > (SELECT MAX(event_time) FROM {{ this }})
 
 | Model | Materialization | Strategy | Unique Key | Why |
 |-------|:-:|---|---|---|
-| `fct_dealer_events` | **incremental** | Append new events | `event_id` | Event facts grow unbounded — must be incremental |
-| `fct_contact_events` | **incremental** | Append new events | `event_id` | Same |
+| `FCT_PRO_BUSINESS_MASTER_EVENTS` | **incremental** | Append new events | `event_id` | Event facts grow unbounded — must be incremental |
+| `FCT_PRO_CONTACT_MASTER_EVENTS` | **incremental** | Append new events | `event_id` | Same |
 | `fct_lead_funnel` | **incremental** | Append new funnel transitions | `event_id` | Same |
 | `fct_reconciliation` | **incremental** | Append new runs | `event_id` | Same |
 
@@ -178,7 +178,7 @@ WHERE event_time > (SELECT MAX(event_time) FROM {{ this }})
 
 | Model | Materialization | Strategy | Why |
 |-------|:-:|---|---|
-| `fct_dealer_snapshot` | **table** (full refresh) | Recalculate all dealer metrics | Depends on dims + staging aggregates — simpler as rebuild |
+| `fct_pro_business_master_snapshot` | **table** (full refresh) | Recalculate all dealer metrics | Depends on dims + staging aggregates — simpler as rebuild |
 
 **Why full refresh:** This computes `days_since_last_login`, distributor counts, program counts etc. These are point-in-time calculations that must reflect TODAY's state. Full refresh ensures correctness.
 
@@ -248,7 +248,7 @@ dbt run --select staging facts bridge
 dbt run --select dimensions
 
 # Snapshot rebuild (scheduled daily 6am)
-dbt run --select fct_dealer_snapshot
+dbt run --select fct_pro_business_master_snapshot
 
 # Everything (rarely needed)
 dbt run

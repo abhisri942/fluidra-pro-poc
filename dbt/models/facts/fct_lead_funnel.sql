@@ -1,77 +1,52 @@
 {{
-  config(
-    materialized='table',
-    schema='FACTS',
-    tags=['facts', 'lead', 'funnel']
-  )
+    config(materialized='view', tags=['facts']
+    )
 }}
 
 /*
-  Fact: fct_lead_funnel
-  Type: Transaction/event fact (one row per funnel transition event)
-  Grain: One row per event_id
-  Measures: seconds_in_stage, funnel_stage classification
-  FKs: pro_business_id -> dim_pro_business_master, event_date -> dim_date
-  Source: Direct from raw source for full event history
-  Note: In production with dbt-core, switch to incremental with merge on event_id.
+  fct_lead_funnel
+  ===============
+  Grain: One row per funnel stage transition (excludes generic 'UPDATED' events)
+  Source: stg_pro_business_master_events
+  KPIs supported:
+    - Time to Approve Lead (seconds_in_stage for LEAD_APPROVED)
+    - Approved Leads to Rewards Activated (stage transitions)
+    - First Login Rate (GUEST → LEAD_CREATED → LEAD_APPROVED timeline)
+    - Leads Rejection Rate (LEAD_REJECTED / total leads)
+    - New Dealer Accounts Created (BUSINESS_CREATED, LEAD_CREATED, GUEST stages)
 */
 
-WITH source AS (
-    SELECT
-        PARSE_JSON(RECORD_METADATA) AS metadata_json,
-        PARSE_JSON(RECORD_CONTENT) AS payload
-    FROM {{ source('fluidrapro_raw', 'POOLPRO_INBOUND_EVENTS') }}
-    WHERE RECORD_METADATA != 'RECORD_METADATA'
-      AND PARSE_JSON(RECORD_CONTENT):"detail-type"::STRING IN (
-          'fluidrapro.pro-business-master.created.v1',
-          'fluidrapro.pro-business-master.approved.v1',
-          'fluidrapro.pro-business-master.rejected.v1',
-          'fluidrapro.pro-business-master.creation-failed.v1',
-          'fluidrapro.pro-business-lead.approved.v1',
-          'fluidrapro.pro-business-lead.rejected.v1'
-      )
-),
+select
+    event_id,
+    event_detail_type,
+    event_time,
+    event_date,
 
-parsed AS (
-    SELECT
-        payload:id::STRING                                          AS event_id,
-        payload:"detail-type"::STRING                               AS event_detail_type,
-        payload:time::TIMESTAMP_NTZ                                 AS event_time,
-        payload:time::DATE                                          AS event_date,
-        metadata_json:offset::NUMBER                                AS kafka_offset,
-        payload:detail.metadata.correlationId::STRING                AS correlation_id,
-        payload:detail.data.proBusinessId::STRING                    AS pro_business_id,
-        payload:detail.data.primaryBusinessEmail::STRING             AS primary_email,
-        payload:detail.data.crmLeadId::STRING                        AS crm_lead_id,
-        payload:detail.data.salesRep.name::STRING                    AS sales_rep_name,
-        payload:detail.data.salesRep.email::STRING                   AS sales_rep_email,
-        payload:detail.data.status::STRING                           AS business_status,
-        payload:detail.data.primaryBusinessType::STRING               AS primary_business_type,
-        payload:detail.data.source::STRING                           AS registration_source,
-        CASE
-            WHEN payload:"detail-type"::STRING LIKE '%created%' AND payload:detail.data.status::STRING = 'GUEST' THEN 'GUEST'
-            WHEN payload:"detail-type"::STRING LIKE '%created%' AND payload:detail.data.status::STRING = 'LEAD' THEN 'LEAD_CREATED'
-            WHEN payload:"detail-type"::STRING LIKE '%created%' THEN 'BUSINESS_CREATED'
-            WHEN payload:"detail-type"::STRING = 'fluidrapro.pro-business-lead.approved.v1' THEN 'LEAD_APPROVED'
-            WHEN payload:"detail-type"::STRING = 'fluidrapro.pro-business-master.approved.v1' THEN 'BUSINESS_APPROVED'
-            WHEN payload:"detail-type"::STRING LIKE '%lead.rejected%' THEN 'LEAD_REJECTED'
-            WHEN payload:"detail-type"::STRING LIKE '%master.rejected%' THEN 'BUSINESS_REJECTED'
-            WHEN payload:"detail-type"::STRING LIKE '%creation-failed%' THEN 'CREATION_FAILED'
-            ELSE 'OTHER'
-        END AS funnel_stage,
-        TRY_TO_TIMESTAMP_NTZ(payload:detail.data.auditInfo.createdAt::STRING) AS submission_time,
-        DATEDIFF('second', TRY_TO_TIMESTAMP_NTZ(payload:detail.data.auditInfo.createdAt::STRING), payload:time::TIMESTAMP_NTZ) AS seconds_in_stage,
-        payload:detail.data.reason::STRING                           AS failure_reason
-    FROM source
-),
+    -- Dimension keys
+    pro_business_id,
+    primary_contact_id,
 
-deduplicated AS (
-    SELECT
-        *,
-        ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY kafka_offset DESC) AS _row_num
-    FROM parsed
-)
+    -- Business context for segmentation
+    primary_business_email,
+    crm_lead_id,
+    sales_rep_name,
+    sales_rep_email,
+    business_status,
+    primary_business_type,
+    business_segment,
+    registration_source,
+    is_primary_key_account,
+    key_account_type_name,
 
-SELECT * EXCLUDE (_row_num)
-FROM deduplicated
-WHERE _row_num = 1
+    -- Funnel measures
+    funnel_stage,
+    seconds_in_stage,
+    failure_reason,
+
+    -- Audit
+    record_created_at
+
+from {{ ref('stg_pro_business_master_events') }}
+where funnel_stage != 'UPDATED'
+
+

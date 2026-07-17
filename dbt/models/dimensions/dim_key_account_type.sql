@@ -1,44 +1,32 @@
 {{
-  config(
-    materialized='table',
-    schema='DIMENSIONS',
-    tags=['dimensions', 'key_account']
-  )
+    config(materialized='view', tags=['dimensions']
+    )
 }}
 
 /*
-  Dimension: dim_key_account_type
-  Type: Type 1 SCD (overwrite on refresh)
+  dim_key_account_type
+  ====================
   Grain: One row per key_account_type_id
-  Design: Pure Kimball — reference/lookup dimension.
-           Attributes only.
-  Source: stg_key_account_type
+  Source: stg_pro_key_account_types (already deduped to latest state)
+  Purpose: Key account type reference dimension
 */
 
-SELECT
-    -- Surrogate key
-    key_account_type_sk,
-
-    -- Natural key
+select
     key_account_type_id,
-
-    -- Key account type attributes
     key_account_type_name,
     key_account_type_role,
     customer_class,
     sales_channel,
     program_name,
     achiever_level,
-
-    -- Flags
     enable_zodiac_premium,
     override_achiever_level_role,
     e_statement_enabled,
     print_statements,
-
-    -- Audit
     created_at,
     created_by,
-    event_time AS last_event_time
+    event_time as last_event_time
 
-FROM {{ ref('stg_key_account_type') }}
+from {{ ref('stg_pro_key_account_types') }}
+
+

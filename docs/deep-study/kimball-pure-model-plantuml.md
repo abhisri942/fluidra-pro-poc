@@ -59,13 +59,13 @@ package "DIMENSIONS" #E8F4FD {
 
 package "FACTS" #FBE9E7 {
 
-  class FCT_DEALER_EVENTS <<(F,#FF6B6B)>> {
+  class FCT_PRO_BUSINESS_MASTER_EVENTS <<(F,#FF6B6B)>> {
     + event_id : STRING <<PK>>
     # pro_business_id : STRING <<FK>>
     # event_date : DATE <<FK>>
   }
 
-  class FCT_CONTACT_EVENTS <<(F,#FF6B6B)>> {
+  class FCT_PRO_CONTACT_MASTER_EVENTS <<(F,#FF6B6B)>> {
     + event_id : STRING <<PK>>
     # pro_contact_id : STRING <<FK>>
     # pro_business_id : STRING <<FK>>
@@ -78,7 +78,7 @@ package "FACTS" #FBE9E7 {
     # event_date : DATE <<FK>>
   }
 
-  class FCT_DEALER_SNAPSHOT <<(F,#FF6B6B)>> {
+  class FCT_PRO_BUSINESS_MASTER_SNAPSHOT <<(F,#FF6B6B)>> {
     # pro_business_id : STRING <<FK>>
     # snapshot_date : DATE <<FK>>
   }
@@ -99,14 +99,14 @@ BRIDGE_PRO_CONTACT_BUSINESS "0..*" ..> "1" DIM_PRO_BUSINESS_MASTER
 BRIDGE_PRO_CONTACT_BUSINESS "0..*" ..> "1" DIM_PRO_CONTACT_MASTER
 
 ' === Fact → Dimension ===
-DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_DEALER_EVENTS
+DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_PRO_BUSINESS_MASTER_EVENTS
 DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_LEAD_FUNNEL
-DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_DEALER_SNAPSHOT
-DIM_PRO_CONTACT_MASTER "1" --o "0..*" FCT_CONTACT_EVENTS
-DIM_DATE "1" ..o "0..*" FCT_DEALER_EVENTS
-DIM_DATE "1" ..o "0..*" FCT_CONTACT_EVENTS
+DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_PRO_BUSINESS_MASTER_SNAPSHOT
+DIM_PRO_CONTACT_MASTER "1" --o "0..*" FCT_PRO_CONTACT_MASTER_EVENTS
+DIM_DATE "1" ..o "0..*" FCT_PRO_BUSINESS_MASTER_EVENTS
+DIM_DATE "1" ..o "0..*" FCT_PRO_CONTACT_MASTER_EVENTS
 DIM_DATE "1" ..o "0..*" FCT_LEAD_FUNNEL
-DIM_DATE "1" ..o "0..*" FCT_DEALER_SNAPSHOT
+DIM_DATE "1" ..o "0..*" FCT_PRO_BUSINESS_MASTER_SNAPSHOT
 DIM_DATE "1" ..o "0..*" FCT_RECONCILIATION
 
 @enduml
@@ -244,7 +244,7 @@ package "DIMENSIONS (Thin - Attributes Only)" #E8F4FD {
 
 package "FACTS (Measures Only)" #FBE9E7 {
 
-  class FCT_DEALER_EVENTS <<(F,#FF6B6B)>> {
+  class FCT_PRO_BUSINESS_MASTER_EVENTS <<(F,#FF6B6B)>> {
     + event_id : STRING <<PK>>
     # pro_business_id : STRING <<FK>>
     # event_date : DATE <<FK>>
@@ -262,7 +262,7 @@ package "FACTS (Measures Only)" #FBE9E7 {
     failure_reason : STRING
   }
 
-  class FCT_CONTACT_EVENTS <<(F,#FF6B6B)>> {
+  class FCT_PRO_CONTACT_MASTER_EVENTS <<(F,#FF6B6B)>> {
     + event_id : STRING <<PK>>
     # pro_contact_id : STRING <<FK>>
     # pro_business_id : STRING <<FK>>
@@ -287,7 +287,7 @@ package "FACTS (Measures Only)" #FBE9E7 {
     failure_reason : STRING
   }
 
-  class FCT_DEALER_SNAPSHOT <<(F,#FF6B6B)>> {
+  class FCT_PRO_BUSINESS_MASTER_SNAPSHOT <<(F,#FF6B6B)>> {
     # pro_business_id : STRING <<FK>>
     # snapshot_date : DATE <<FK>>
     --
@@ -325,14 +325,14 @@ BRIDGE_PRO_CONTACT_BUSINESS "0..*" ..> "1" DIM_PRO_BUSINESS_MASTER : pro_busines
 BRIDGE_PRO_CONTACT_BUSINESS "0..*" ..> "1" DIM_PRO_CONTACT_MASTER : pro_contact_id
 
 ' === Fact to Dimension ===
-DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_DEALER_EVENTS : pro_business_id
+DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_PRO_BUSINESS_MASTER_EVENTS : pro_business_id
 DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_LEAD_FUNNEL : pro_business_id
-DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_DEALER_SNAPSHOT : pro_business_id
-DIM_PRO_CONTACT_MASTER "1" --o "0..*" FCT_CONTACT_EVENTS : pro_contact_id
-DIM_DATE "1" ..o "0..*" FCT_DEALER_EVENTS : event_date
-DIM_DATE "1" ..o "0..*" FCT_CONTACT_EVENTS : event_date
+DIM_PRO_BUSINESS_MASTER "1" --o "0..*" FCT_PRO_BUSINESS_MASTER_SNAPSHOT : pro_business_id
+DIM_PRO_CONTACT_MASTER "1" --o "0..*" FCT_PRO_CONTACT_MASTER_EVENTS : pro_contact_id
+DIM_DATE "1" ..o "0..*" FCT_PRO_BUSINESS_MASTER_EVENTS : event_date
+DIM_DATE "1" ..o "0..*" FCT_PRO_CONTACT_MASTER_EVENTS : event_date
 DIM_DATE "1" ..o "0..*" FCT_LEAD_FUNNEL : event_date
-DIM_DATE "1" ..o "0..*" FCT_DEALER_SNAPSHOT : snapshot_date
+DIM_DATE "1" ..o "0..*" FCT_PRO_BUSINESS_MASTER_SNAPSHOT : snapshot_date
 DIM_DATE "1" ..o "0..*" FCT_RECONCILIATION : event_date
 
 @enduml

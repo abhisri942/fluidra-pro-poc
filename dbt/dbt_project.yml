@@ -1,25 +1,31 @@
-name: 'fluidra_pro_analytics'
+name: 'fluidra_pro'
 version: '1.0.0'
-config-version: 2
-profile: 'fluidra_pro_analytics'
+
+profile: 'fluidra_pro'
+
 model-paths: ["models"]
+analysis-paths: ["analyses"]
 test-paths: ["tests"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
 models:
-  fluidra_pro_analytics:
+  fluidra_pro:
     staging:
-      +materialized: table
-      +transient: true
-      +schema: STAGING
-    dimensions:
-      +materialized: table
-      +schema: DIMENSIONS
-    facts:
-      +materialized: table
-      +schema: FACTS
-    marts:
-      +materialized: table
-      +schema: MARTS
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:;
+      dimensions:
+        +schema: dimensions
+        +materialized: table
+      facts:
+        +schema: facts
+        +materialized: view

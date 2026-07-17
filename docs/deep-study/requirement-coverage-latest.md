@@ -14,13 +14,13 @@ This analysis maps the official MVP KPI requirements against our current data mo
 | 2 | Total Enrolled Dealers (set up account) | — | ✅ FULL | DIM_PRO_BUSINESS_MASTER (`login_status=ACTIVE`) | None |
 | 3 | Total Dealer Accounts Not Set Up | — | ✅ FULL | DIM_PRO_BUSINESS_MASTER (`login_status=PENDING`) | None |
 | 4 | Total Inactive Dealers | — | ✅ FULL | DIM + DAX (`login_status=ACTIVE` but `last_login_date` stale) | None |
-| 5 | New Dealer Accounts Created (30d/60d/year) | 10% YoY growth | ✅ FULL | FCT_DEALER_EVENTS (`is_created_event=1`) | None |
-| 6 | New Technician Accounts Created | 15% YoY growth | ✅ FULL | FCT_CONTACT_EVENTS (`is_created_event=1 AND contact_type='TECHNICIAN'`) | None |
+| 5 | New Dealer Accounts Created (30d/60d/year) | 10% YoY growth | ✅ FULL | FCT_PRO_BUSINESS_MASTER_EVENTS (`is_created_event=1`) | None |
+| 6 | New Technician Accounts Created | 15% YoY growth | ✅ FULL | FCT_PRO_CONTACT_MASTER_EVENTS (`is_created_event=1 AND contact_type='TECHNICIAN'`) | None |
 | 7 | Time to Approve Lead | < 24 hours | ✅ FULL | FCT_LEAD_FUNNEL (`seconds_in_stage` for LEAD_APPROVED) | None |
 | 8 | Approved Leads to Rewards Activated | < 24 hours | ⚠️ PARTIAL | FCT_LEAD_FUNNEL approval time → DIM `rewards_signup_date` | Gap: `rewards_signup_date` is NULL on many records in QA. Works when populated. |
-| 9 | First Login Rate (within 14 days) | > 75% in 7 days | ✅ FULL | FCT_CONTACT_EVENTS (created → login-created time gap) | None — can filter by 7d/14d window |
+| 9 | First Login Rate (within 14 days) | > 75% in 7 days | ✅ FULL | FCT_PRO_CONTACT_MASTER_EVENTS (created → login-created time gap) | None — can filter by 7d/14d window |
 | 10 | Total Active Users (TAU) (30d/90d/year) | 15% YoY growth | ⚠️ PARTIAL | DIM_PRO_CONTACT_MASTER (`login_status=ACTIVE`) | Gap: `last_login_date` is a snapshot, not real-time. Can approximate but not precise per-period without login event stream. |
-| 11 | Total Users Not Set Up | — | ✅ FULL | FCT_CONTACT_EVENTS (created contacts with no login-created event) | None |
+| 11 | Total Users Not Set Up | — | ✅ FULL | FCT_PRO_CONTACT_MASTER_EVENTS (created contacts with no login-created event) | None |
 | 12 | Total Inactive Users | — | ⚠️ PARTIAL | DIM_PRO_CONTACT_MASTER (`login_status=ACTIVE` + stale `last_login_date`) | Same gap as #10 — snapshot-based |
 | 13 | TAU per Dealer Account | ≥ 3 active users | ✅ FULL | BRIDGE + DIM_PRO_CONTACT_MASTER → COUNT per dealer in Power BI | None |
 | 14 | Stickiness Ratio — Dealers (WAU/MAU) | > 20% | ❌ GAP | No login frequency data | Need Cognito/Auth0 session events |
@@ -39,15 +39,15 @@ This analysis maps the official MVP KPI requirements against our current data mo
 | Total Active Users by Contact Role | ✅ | DIM_PRO_CONTACT_MASTER grouped by `contact_type` |
 | New Dealer Accounts Created vs Guest | ✅ | FCT_LEAD_FUNNEL (`funnel_stage` = GUEST vs LEAD_CREATED vs BUSINESS_CREATED) |
 | Converting Guest to Lead | ✅ | FCT_LEAD_FUNNEL (track same `pro_business_id` from GUEST → LEAD) |
-| New Technician Accounts Created vs Guest | ⚠️ | Technician accounts in FCT_CONTACT_EVENTS. Guest technicians in `stg_pro_guest_technicians`. Need to link. |
-| Time to First Login | ✅ | FCT_CONTACT_EVENTS (created → login-created gap) |
+| New Technician Accounts Created vs Guest | ⚠️ | Technician accounts in FCT_PRO_CONTACT_MASTER_EVENTS. Guest technicians in `stg_pro_guest_technicians`. Need to link. |
+| Time to First Login | ✅ | FCT_PRO_CONTACT_MASTER_EVENTS (created → login-created gap) |
 | First Login Rate (within X days) | ✅ | Same — filter by DATEDIFF ≤ X |
 | Total Active Users (all associated) | ✅ | DIM_PRO_CONTACT_MASTER via BRIDGE |
 | Stickiness (DAU/WAU/MAU) | ❌ GAP | No session/login frequency data |
 | Filter by Key Account vs Non-Key Account | ✅ | DIM_PRO_BUSINESS_MASTER (`key_account_type_name IS NOT NULL`) |
 | Filter by Primary Business Type | ✅ | DIM_PRO_BUSINESS_MASTER (`primary_business_type`) |
 | Filter by Achiever Level | ✅ | DIM_PRO_BUSINESS_MASTER (`rewards_achiever_level`) |
-| Trend analysis (time series) | ✅ | FCT_DEALER_EVENTS + FCT_CONTACT_EVENTS have `event_date` |
+| Trend analysis (time series) | ✅ | FCT_PRO_BUSINESS_MASTER_EVENTS + FCT_PRO_CONTACT_MASTER_EVENTS have `event_date` |
 | Target/benchmark comparisons | ✅ | Power BI reference lines against target values |
 | Drill-down capability | ✅ | OBT_DEALER_PROFILE or dim-to-fact drill-through |
 | Tooltip with KPI description | ✅ | Power BI tooltip configuration |

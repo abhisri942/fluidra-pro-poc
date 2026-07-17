@@ -76,10 +76,10 @@ flowchart TB
     end
 
     subgraph FACTS["Facts"]
-        F1["FCT_DEALER_EVENTS"]
-        F2["FCT_CONTACT_EVENTS"]
+        F1["FCT_PRO_BUSINESS_MASTER_EVENTS"]
+        F2["FCT_PRO_CONTACT_MASTER_EVENTS"]
         F3["FCT_LEAD_FUNNEL"]
-        F4["FCT_DEALER_SNAPSHOT"]
+        F4["FCT_PRO_BUSINESS_MASTER_SNAPSHOT"]
     end
 
     subgraph METRICS["Metric Views"]

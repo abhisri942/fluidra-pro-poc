@@ -553,10 +553,10 @@ FROM (
 
 ## 4. Fact Tables
 
-### 4.1 FCT_DEALER_EVENTS (grain: one row per business event)
+### 4.1 FCT_PRO_BUSINESS_MASTER_EVENTS (grain: one row per business event)
 
 ```sql
-CREATE OR REPLACE VIEW ANALYTICS_DB.FACTS.FCT_DEALER_EVENTS AS
+CREATE OR REPLACE VIEW ANALYTICS_DB.FACTS.FCT_PRO_BUSINESS_MASTER_EVENTS AS
 SELECT
     event_id,
     event_time,
@@ -593,10 +593,10 @@ FROM ANALYTICS_DB.STAGING.STG_EVENTS_PARSED
 WHERE event_detail_type LIKE '%pro-business%';
 ```
 
-### 4.2 FCT_CONTACT_EVENTS (grain: one row per contact event)
+### 4.2 FCT_PRO_CONTACT_MASTER_EVENTS (grain: one row per contact event)
 
 ```sql
-CREATE OR REPLACE VIEW ANALYTICS_DB.FACTS.FCT_CONTACT_EVENTS AS
+CREATE OR REPLACE VIEW ANALYTICS_DB.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS AS
 SELECT
     event_id,
     event_time,
@@ -702,7 +702,7 @@ new_dealers AS (
     SELECT
         event_date,
         COUNT(*) as new_dealer_count
-    FROM ANALYTICS_DB.FACTS.FCT_DEALER_EVENTS
+    FROM ANALYTICS_DB.FACTS.FCT_PRO_BUSINESS_MASTER_EVENTS
     WHERE is_created_event = 1
     GROUP BY event_date
 )
@@ -801,7 +801,7 @@ SELECT
 ```sql
 CREATE OR REPLACE VIEW ANALYTICS_DB.METRICS.METRIC_USER_ADOPTION AS
 WITH contact_events AS (
-    SELECT * FROM ANALYTICS_DB.FACTS.FCT_CONTACT_EVENTS
+    SELECT * FROM ANALYTICS_DB.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS
 ),
 contacts_created AS (
     SELECT DISTINCT pro_contact_id
@@ -980,7 +980,7 @@ SELECT
     SUM(CASE WHEN source = 'SALESFORCE' AND is_created_event = 1 THEN 1 ELSE 0 END) as from_salesforce,
     -- By business type
     SUM(CASE WHEN is_created_event = 1 THEN distributor_count ELSE 0 END) as total_distributor_links
-FROM ANALYTICS_DB.FACTS.FCT_DEALER_EVENTS
+FROM ANALYTICS_DB.FACTS.FCT_PRO_BUSINESS_MASTER_EVENTS
 GROUP BY DATE_TRUNC('week', event_date)
 ORDER BY week_start;
 ```
@@ -1051,7 +1051,7 @@ WITH created AS (
         pro_contact_id,
         contact_type,
         MIN(event_time) as created_time
-    FROM ANALYTICS_DB.FACTS.FCT_CONTACT_EVENTS
+    FROM ANALYTICS_DB.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS
     WHERE is_created_event = 1
     GROUP BY pro_contact_id, contact_type
 ),
@@ -1059,7 +1059,7 @@ login_created AS (
     SELECT
         pro_contact_id,
         MIN(event_time) as login_created_time
-    FROM ANALYTICS_DB.FACTS.FCT_CONTACT_EVENTS
+    FROM ANALYTICS_DB.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS
     WHERE is_login_created_event = 1
     GROUP BY pro_contact_id
 )
@@ -1123,7 +1123,7 @@ ORDER BY total_created DESC;
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                        │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────┐  │
-│  │FCT_DEALER_EVENTS │  │FCT_CONTACT_EVENTS│  │ FCT_LEAD_FUNNEL   │  │
+│  │FCT_PRO_BUSINESS_MASTER_EVENTS │  │FCT_PRO_CONTACT_MASTER_EVENTS│  │ FCT_LEAD_FUNNEL   │  │
 │  │                  │  │                  │  │                    │  │
 │  │ event_id         │  │ event_id         │  │ event_id           │  │
 │  │ event_time       │  │ event_time       │  │ event_time         │  │
@@ -1195,7 +1195,7 @@ ORDER BY total_created DESC;
 
 1. **Star Schema with Bridge** — DIM_DEALER is the central hub. All other dims connect via `pro_business_id`.
 2. **Bridge Pattern** — BRIDGE_CONTACT_DEALER resolves the NULL `proBusinessId` on contact-created events by extracting the relationship from business-master events.
-3. **Degenerate Dimensions** — UTM fields live directly on FCT_DEALER_EVENTS (no separate UTM dimension needed at this volume).
+3. **Degenerate Dimensions** — UTM fields live directly on FCT_PRO_BUSINESS_MASTER_EVENTS (no separate UTM dimension needed at this volume).
 4. **Conformed Dimensions** — DIM_DATE is role-playing across all fact tables (event_date FK).
 5. **Semi-Additive Facts** — `distributor_count` and `program_opt_in_count` are snapshot measures (latest state), not additive across time.
 
@@ -1210,8 +1210,8 @@ ORDER BY total_created DESC;
 8. ANALYTICS_DB.DIMENSIONS.DIM_PROGRAM_OPT_IN      (depends on: staging)
 9. ANALYTICS_DB.DIMENSIONS.DIM_SUBSCRIPTION        (depends on: staging)
 10. ANALYTICS_DB.DIMENSIONS.DIM_SALES_REP          (depends on: staging)
-11. ANALYTICS_DB.FACTS.FCT_DEALER_EVENTS           (depends on: staging)
-12. ANALYTICS_DB.FACTS.FCT_CONTACT_EVENTS          (depends on: staging)
+11. ANALYTICS_DB.FACTS.FCT_PRO_BUSINESS_MASTER_EVENTS           (depends on: staging)
+12. ANALYTICS_DB.FACTS.FCT_PRO_CONTACT_MASTER_EVENTS          (depends on: staging)
 13. ANALYTICS_DB.FACTS.FCT_LEAD_FUNNEL             (depends on: staging)
 14. ANALYTICS_DB.FACTS.FCT_RECONCILIATION          (depends on: staging)
 15. ANALYTICS_DB.METRICS.METRIC_DEALER_ADOPTION    (depends on: dims + facts)

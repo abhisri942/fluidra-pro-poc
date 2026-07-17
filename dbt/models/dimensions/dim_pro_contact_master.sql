@@ -1,65 +1,54 @@
 {{
-  config(
-    materialized='table',
-    schema='DIMENSIONS',
-    tags=['dimensions', 'contact']
-  )
+    config(materialized='view', tags=['dimensions']
+    )
 }}
 
 /*
-  Dimension: dim_pro_contact_master
-  Type: Type 1 SCD (overwrite on refresh)
-  Grain: One row per pro_contact_id
-  Design: Pure Kimball THIN dimension — attributes only.
-           last_login_date is kept as a timestamp ATTRIBUTE (not a measure).
-           days_since_last_login is NOT here — it's a derived measure in the fact.
-  Source: stg_pro_contact_master + bridge resolution for pro_business_id
-  Note: 99% of contact events have NULL pro_business_id.
-        The bridge resolves this using the primary contact embedded in business events.
+  dim_pro_contact_master
+  ======================
+  Grain: One row per pro_contact_id — latest state
+  Source: stg_pro_contact_master_events + bridge from business events
+  Purpose: Contact dimension with business linkage (fills missing pro_business_id)
 */
 
-WITH bridge AS (
-    SELECT DISTINCT
-        primary_contact_id AS pro_contact_id,
-        pro_business_id
-    FROM {{ ref('stg_pro_business_master') }}
-    WHERE primary_contact_id IS NOT NULL
-      AND pro_business_id IS NOT NULL
+with contact_standalone as (
+    select *
+    from {{ ref('stg_pro_contact_master_events') }}
+),
+
+bridge as (
+    select distinct
+        parse_json(record_content):detail.data.proBusinessId::string as pro_business_id,
+        parse_json(record_content):detail.data.primaryContact.proContactId::string as pro_contact_id
+    from {{ source('fluidrapro_raw', 'raw_dealers_data') }}
+    where parse_json(record_content):"detail-type"::string like '%pro-business-master%'
+      and parse_json(record_content):detail.data.primaryContact.proContactId is not null
+      and parse_json(record_content):detail.data.proBusinessId is not null
 )
 
-SELECT
-    -- Surrogate key
-    c.pro_contact_sk,
-
-    -- Natural key
+select
     c.pro_contact_id,
-
-    -- Resolved FK to business
-    COALESCE(c.pro_business_id, b.pro_business_id) AS pro_business_id,
-
-    -- Contact attributes
+    coalesce(c.pro_business_id, b.pro_business_id) as pro_business_id,
     c.contact_type,
     c.first_name,
     c.last_name,
     c.email,
     c.phone_number,
-
-    -- Login state (attributes)
     c.login_status,
     c.username,
     c.cognito_sub_id,
     c.web_user_id,
-    c.last_login_date,      -- timestamp attribute, NOT a measure
-
-    -- Status
+    c.last_login_date,
     c.contact_status,
     c.is_deleted_event,
+    c.record_created_at as created_at,
+    c.event_time as last_event_time
 
-    -- Audit
-    c.created_at,
-    c.updated_at,
-    c.event_time AS last_event_time
+from contact_standalone c
+left join bridge b on c.pro_contact_id = b.pro_contact_id
+qualify row_number() over (
+    partition by c.pro_contact_id
+    order by c.event_time desc, c.kafka_offset desc
+) = 1
 
-FROM {{ ref('stg_pro_contact_master') }} c
-LEFT JOIN bridge b
-    ON c.pro_contact_id = b.pro_contact_id
+
